@@ -1,31 +1,178 @@
-<!-- d_flask_web_app/templates/index.html -->
-
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Specimen Size Calculator</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Specimen Actual Size Calculator - Calculate and store the real size of specimens based on microscope measurements.">
+    <title>Specimen Actual Size Calculator</title>
     <style>
-        body { font-family: Arial; background: #f4f4f4; text-align: center; padding: 50px; }
-        form { background: white; display: inline-block; padding: 20px; border-radius: 10px; box-shadow: 0 0 10px #ccc; }
-        input { margin: 10px; padding: 8px; width: 250px; }
-        .msg { color: green; margin-bottom: 20px; }
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f4f4;
+            text-align: center;
+            padding: 50px;
+            margin: 0;
+        }
+        form {
+            background: #fff;
+            display: inline-block;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        label {
+            display: block;
+            text-align: left;
+            margin: 10px 0 5px;
+            font-weight: bold;
+        }
+        input {
+            margin: 10px 0;
+            padding: 10px;
+            width: calc(100% - 20px);
+            border: 1px solid #666;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        .msg {
+            color: green;
+            margin-bottom: 20px;
+        }
+        .error-msg {
+            color: red;
+            margin-bottom: 20px;
+        }
+        .warning {
+            color: orange;
+            font-size: 0.9em;
+            margin: 5px 0;
+        }
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px;
+            margin: 10px 5px; /* Increased spacing */
+        }
+        button:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #preview {
+            margin: 10px 0;
+            font-weight: bold; /* Make preview stand out */
+            color: #333;
+        }
+        #unitSelect {
+            margin: 10px 0;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 20px;
+            }
+        }
     </style>
 </head>
 <body>
-    <h1>Specimen Size Calculator</h1>
-    
-    {% with messages = get_flashed_messages(with_categories=false) %}
-      {% if messages %}
-        <div class="msg">{{ messages[0] }}</div>
-      {% endif %}
-    {% endwith %}
+    <h1>Specimen Actual Size Calculator</h1>
 
-    <form method="POST">
-        <input type="text" name="username" placeholder="Your Name" required><br>
-        <input type="text" name="specimen" placeholder="Specimen Name" required><br>
-        <input type="text" name="microscope_size" placeholder="Microscope Size (μm)" required><br>
-        <input type="text" name="magnification" placeholder="Magnification" required><br>
-        <input type="submit" value="Calculate & Save">
+    
+
+    <!-- Form Section -->
+    <form method="POST" id="calcForm">
+        <label for="username">Your Name</label>
+        <input type="text" id="username" name="username" placeholder="Enter your name" maxlength="50" required>
+
+        <label for="specimen">Specimen Name</label>
+        <input type="text" id="specimen" name="specimen" placeholder="Enter specimen name" maxlength="100" required>
+
+        <label for="microscope_size">Measured Size (μm)</label>
+        <input type="number" id="microscope_size" name="microscope_size" placeholder="Enter measured size in μm" step="any" min="0.0001" required>
+
+        <label for="magnification">Magnification</label>
+        <input type="number" id="magnification" name="magnification" placeholder="Enter magnification value" step="any" min="1" required>
+        <div id="magWarning" class="warning" style="display: none;">Warning: Magnification below 10x is unusually low for microscopy.</div>
+
+        <p id="preview">Real Size: <span>Enter values to calculate</span> <select id="unitSelect">
+            <option value="μm">μm</option>
+            <option value="mm">mm</option>
+            <option value="nm">nm</option>
+        </select></p>
+
+        <button type="submit" id="submitBtn">Calculate & Save</button>
+        <button type="reset" id="resetBtn">Clear Form</button>
     </form>
+
+    <script>
+        const microscopeSize = document.getElementById('microscope_size');
+        const magnification = document.getElementById('magnification');
+        const preview = document.querySelector('#preview span');
+        const unitSelect = document.getElementById('unitSelect');
+        const magWarning = document.getElementById('magWarning');
+        const form = document.getElementById('calcForm');
+        const submitBtn = document.getElementById('submitBtn');
+
+        function getPrecision(value) {
+            const str = value.toString();
+            const decimalIndex = str.indexOf('.');
+            return decimalIndex === -1 ? 0 : str.length - decimalIndex - 1;
+        }
+
+        function updatePreview() {
+            const size = parseFloat(microscopeSize.value);
+            const mag = parseFloat(magnification.value);
+            let result = (size && mag && mag !== 0) ? (size / mag) : null;
+            const unit = unitSelect.value;
+
+            // Adjust result based on unit
+            if (result !== null) {
+                if (unit === 'mm') result *= 0.001; // μm to mm
+                else if (unit === 'nm') result *= 1000; // μm to nm
+
+                // Determine precision based on inputs
+                const sizePrecision = getPrecision(size);
+                const magPrecision = getPrecision(mag);
+                const maxPrecision = Math.max(sizePrecision, magPrecision, 2); // Minimum 2 decimal places
+                preview.textContent = result.toFixed(Math.min(maxPrecision, 4));
+            } else {
+                preview.textContent = 'Enter valid values';
+            }
+
+            // Show magnification warning if below 10x
+            if (mag && mag < 10) {
+                magWarning.style.display = 'block';
+            } else {
+                magWarning.style.display = 'none';
+            }
+        }
+
+        microscopeSize.addEventListener('input', updatePreview);
+        magnification.addEventListener('input', updatePreview);
+        unitSelect.addEventListener('change', updatePreview);
+
+        form.addEventListener('submit', () => {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+        });
+
+        form.addEventListener('reset', () => {
+            setTimeout(() => {
+                updatePreview();
+                magWarning.style.display = 'none';
+            }, 0);
+        });
+
+        // Initial update
+        updatePreview();
+    </script>
 </body>
 </html>
