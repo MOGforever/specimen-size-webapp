@@ -1,0 +1,11 @@
+# d_flask_web_app/render.yaml
+
+services:
+  - type: web
+    name: specimen-app
+    runtime: python
+    buildCommand: ""
+    startCommand: "python app.py"
+    envVars:
+      - key: FLASK_ENV
+        value: production
